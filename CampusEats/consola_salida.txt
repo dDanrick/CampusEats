@@ -1,0 +1,24 @@
+--- INICIO DE LIMPIEZA ---
+Líneas iniciales: 633
+Descartadas por [Pedidos repetidos]: 2
+Descartadas por [Cantidad igual o menor a cero]: 1
+Descartadas por [Pedidos no pagados]: 35
+Descartadas por [Pago no aprobado o monto distinto]: 2
+Descartadas por [Completar nombre del plato (menú)]: 0
+Quedan al final: 593 líneas de 388 pedidos
+
+========================================================
+ RESUMEN DE ANALÍTICA CAMPUSEATS (2026-10-19 a 2026-10-30)
+========================================================
+- Platos más vendidos:
+  -> 1. Almuerzo ejecutivo, 138 unidades / 2. Jugo natural, 116 unidades / 3. Café pasado, 114 unidades / 4. Seco de pollo, 93 unidades / 5. Batido de mora, 73 unidades
+--------------------------------------------------------
+- Pedidos por hora:
+  -> La hora pico es las 13:00, con 71 pedidos. Le siguen las 10:00 (63) y las 12:00 (59).
+--------------------------------------------------------
+- Ticket promedio:
+  -> 4,94 dólares por pedido
+--------------------------------------------------------
+- Pagos rechazados:
+  -> 39 de 443 transacciones (8,8 %)
+--------------------------------------------------------

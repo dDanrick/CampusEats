@@ -1,0 +1,190 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+package "Modelo" {
+    class LineaPedido <<record>> {
+        idPedido: String
+        idPlato: int
+        nombrePlato: String
+        cantidad: int
+        precioHistorico: double
+        fechaHora: LocalDateTime
+        estadoPedido: String
+    }
+    class Pago <<record>> {
+        idTransaccion: String
+        monto: double
+        estado: String
+        codAutorizacion: String
+        motivoRechazo: String
+        fechaHora: LocalDateTime
+    }
+    class Plato <<record>> {
+        idPlato: int
+        nombre: String
+        categoria: String
+        precio: double
+        estado: String
+    }
+}
+
+package "Adaptadores" {
+    interface "FuenteDeDatos<T>" as FuenteDeDatos <<Interface>> {
+        +leer(): List<T>
+    }
+    class AppPedidosJsonAdapter {
+        -rutaArchivo: Path
+        +leer(): List<LineaPedido>
+    }
+    class PasarelaCsvAdapter {
+        -rutaArchivo: Path
+        +leer(): List<Pago>
+    }
+    class MenuCsvAdapter {
+        -rutaArchivo: Path
+        +leer(): List<Plato>
+    }
+    AppPedidosJsonAdapter ..|> FuenteDeDatos
+    PasarelaCsvAdapter ..|> FuenteDeDatos
+    MenuCsvAdapter ..|> FuenteDeDatos
+}
+
+package "Fabrica" {
+    class ConfigFuente <<record>> {
+        tipo: String
+        ruta: String
+    }
+    class FabricaFuentes {
+        -REGISTRO: Map<String, Function<Path, FuenteDeDatos<?>>>
+        +{static} registrar(tipo: String, creador: Function)
+        +{static} crear(config: ConfigFuente): FuenteDeDatos<?>
+        +{static} crearTodas(archivoConfig: Path): List<FuenteDeDatos<?>>
+    }
+    FabricaFuentes ..> ConfigFuente : lee
+    FabricaFuentes ..> FuenteDeDatos : crea
+    FabricaFuentes ..> AppPedidosJsonAdapter : app_json
+    FabricaFuentes ..> PasarelaCsvAdapter : pasarela_csv
+    FabricaFuentes ..> MenuCsvAdapter : menu_csv
+}
+
+package "Filtros" {
+    interface Filtro <<Interface>> {
+        +filtrar(lineas: List<LineaPedido>): List<LineaPedido>
+        +getRegistrosDescartados(): int
+        +getNombre(): String
+    }
+    class Pipeline {
+        -filtros: List<Filtro>
+        +agregarFiltro(filtro: Filtro)
+        +ejecutar(lineas: List<LineaPedido>): List<LineaPedido>
+    }
+    class Duplicados
+    class Cantidad
+    class FiltroPagado
+    class FiltroPago {
+        +FiltroPago(pagos: List<Pago>)
+    }
+    class CompletarNombrePlato {
+        +CompletarNombrePlato(menu: List<Plato>)
+    }
+    Duplicados ..|> Filtro
+    Cantidad ..|> Filtro
+    FiltroPagado ..|> Filtro
+    FiltroPago ..|> Filtro
+    CompletarNombrePlato ..|> Filtro
+    Pipeline o-- "0..*" Filtro : encadena
+}
+
+package "Analitica" {
+    interface Metrica <<Interface>> {
+        +nombre(): String
+        +calcular(lineas: List<LineaPedido>, pagos: List<Pago>): String
+    }
+    class PlatosTop
+    class PedidosPorHora
+    class TicketPromedio
+    class PagosRechazados
+    PlatosTop ..|> Metrica
+    PedidosPorHora ..|> Metrica
+    TicketPromedio ..|> Metrica
+    PagosRechazados ..|> Metrica
+
+    interface RepoAnalitica <<Interface>> {
+        +guardarLineas(lineas: List<LineaPedido>)
+        +guardarPagos(pagos: List<Pago>)
+        +lineasEntre(desde: LocalDate, hasta: LocalDate): List<LineaPedido>
+        +pagosEntre(desde: LocalDate, hasta: LocalDate): List<Pago>
+    }
+    class RepoAnaliticaEnMemoria
+    RepoAnaliticaEnMemoria ..|> RepoAnalitica
+
+    class ServicioAnalitica {
+        -repositorio: RepoAnalitica
+        -metricas: List<Metrica>
+        +ServicioAnalitica(repositorio: RepoAnalitica, metricas: List<Metrica>)
+        +cargar()
+        +resumen(desde: LocalDate, hasta: LocalDate)
+    }
+    class Main {
+        +{static} main(args: String[])
+    }
+    ServicioAnalitica o-- RepoAnalitica
+    ServicioAnalitica o-- "1..*" Metrica
+    ServicioAnalitica ..> FabricaFuentes : obtiene fuentes
+    ServicioAnalitica ..> Pipeline : limpia
+    Main ..> ServicioAnalitica
+}
+
+AppPedidosJsonAdapter ..> LineaPedido : traduce a
+PasarelaCsvAdapter ..> Pago : traduce a
+MenuCsvAdapter ..> Plato : traduce a
+Filtro ..> LineaPedido
+FiltroPago ..> Pago : valida contra
+CompletarNombrePlato ..> Plato : toma nombres de
+Metrica ..> LineaPedido
+RepoAnalitica ..> LineaPedido
+
+note as N1
+<b>Patrón Adapter</b>
+Cada adaptador traduce un formato (JSON / CSV)
+al modelo común mediante FuenteDeDatos.
+end note
+N1 .. AppPedidosJsonAdapter
+
+note as N2
+<b>Patrón Factory</b>
+Elige el adaptador según el "tipo" de
+config/fuentes.json usando un Map, sin if.
+end note
+N2 .. FabricaFuentes
+
+note as N3
+<b>Patrón Pipeline (Pipes & Filters)</b>
+Cada filtro aplica una sola regla. El Pipeline los
+ejecuta en orden: Duplicados → Cantidad → FiltroPagado →
+FiltroPago → CompletarNombrePlato.
+end note
+N3 .. Pipeline
+
+note as N4
+<b>Patrón Strategy</b>
+Cada métrica es una estrategia intercambiable
+detrás de la interfaz Metrica.
+end note
+N4 .. Metrica
+
+note as N5
+<b>Patrón Repository</b>
+RepoAnalitica oculta dónde se guardan los datos
+(hoy en memoria).
+end note
+N5 .. RepoAnalitica
+
+note as N6
+<b>Patrón Facade</b>
+ServicioAnalitica es la única puerta de entrada:
+cargar() y resumen(desde, hasta).
+end note
+N6 .. ServicioAnalitica
+@enduml
